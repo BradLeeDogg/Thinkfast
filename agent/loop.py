@@ -1,70 +1,51 @@
-import anthropic
-
+from .engine import strip_tool_calls
 from .memory import Memory
 from .tools import TOOL_SCHEMAS, TOOLS
 
-MODEL = "claude-opus-4-8"
-MAX_TOKENS = 16000
-
-SYSTEM_PROMPT = (
-    "You are a general-purpose agent with access to tools for reading and "
-    "writing files, running shell commands, and doing arithmetic. Use tools "
-    "when they help you complete the user's request accurately; otherwise "
-    "just answer directly."
-)
+# Stop runaway tool-calling: cap how many generate -> run-tools rounds one user
+# turn may take before we give up.
+MAX_STEPS = 10
 
 
-def _execute_tool(name: str, tool_input: dict) -> tuple[str, bool]:
+def _execute_tool(name: str, tool_input: dict) -> str:
     handler = TOOLS.get(name)
     if handler is None:
-        return f"Error: unknown tool '{name}'", True
+        return f"Error: unknown tool '{name}'"
     try:
-        return handler(**tool_input), False
-    except Exception as exc:  # tool implementations are arbitrary; surface any failure to Claude
-        return f"Error running '{name}': {exc}", True
+        return handler(**tool_input)
+    except Exception as exc:  # tool implementations are arbitrary; surface any failure to the model
+        return f"Error running '{name}': {exc}"
 
 
-def _stream_turn(client: anthropic.Anthropic, messages: list[dict]) -> anthropic.types.Message:
-    with client.messages.stream(
-        model=MODEL,
-        max_tokens=MAX_TOKENS,
-        system=SYSTEM_PROMPT,
-        thinking={"type": "adaptive"},
-        tools=TOOL_SCHEMAS,
-        messages=messages,
-    ) as stream:
-        for text in stream.text_stream:
-            print(text, end="", flush=True)
-        final = stream.get_final_message()
-    print()
-    return final
+def run_turn(engine, memory: Memory, user_input: str) -> str:
+    """Run one user turn through the agent loop until the model stops calling tools.
 
-
-def run_turn(client: anthropic.Anthropic, memory: Memory, user_input: str) -> str:
-    """Run one user turn through the agent loop until Claude stops calling tools."""
+    ``engine`` only needs a ``generate(messages, tools) -> (text, tool_calls)``
+    method, so a stub can stand in for the real model in tests.
+    """
     memory.append({"role": "user", "content": user_input})
 
-    while True:
-        response = _stream_turn(client, memory.messages)
-        content = [block.model_dump(mode="json") for block in response.content]
-        memory.append({"role": "assistant", "content": content})
+    for _ in range(MAX_STEPS):
+        text, tool_calls = engine.generate(memory.messages, TOOL_SCHEMAS)
 
-        if response.stop_reason != "tool_use":
-            break
+        if not tool_calls:
+            memory.append({"role": "assistant", "content": text})
+            return text
 
-        tool_results = []
-        for block in response.content:
-            if block.type != "tool_use":
-                continue
-            result, is_error = _execute_tool(block.name, block.input)
-            tool_results.append(
-                {
-                    "type": "tool_result",
-                    "tool_use_id": block.id,
-                    "content": result,
-                    "is_error": is_error,
-                }
-            )
-        memory.append({"role": "user", "content": tool_results})
+        memory.append(
+            {
+                "role": "assistant",
+                "content": strip_tool_calls(text),
+                "tool_calls": [
+                    {"type": "function", "function": {"name": c.name, "arguments": c.arguments}}
+                    for c in tool_calls
+                ],
+            }
+        )
+        for call in tool_calls:
+            result = _execute_tool(call.name, call.arguments)
+            memory.append({"role": "tool", "name": call.name, "content": result})
 
-    return next((b.text for b in response.content if b.type == "text"), "")
+    final = "(stopped: reached the maximum number of tool-calling steps)"
+    memory.append({"role": "assistant", "content": final})
+    return final

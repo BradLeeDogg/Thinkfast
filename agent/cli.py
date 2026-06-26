@@ -1,7 +1,7 @@
+import os
 import sys
 
-import anthropic
-
+from .engine import DEFAULT_MODEL, LocalEngine
 from .loop import run_turn
 from .memory import Memory
 
@@ -9,20 +9,25 @@ HISTORY_PATH = ".agent_history.json"
 
 
 def main() -> None:
+    model_name = os.environ.get("AGENT_MODEL", DEFAULT_MODEL)
+    print(f"Loading {model_name} … (the first run downloads the weights)", file=sys.stderr)
     try:
-        client = anthropic.Anthropic()
-    except anthropic.AnthropicError as exc:
-        print(f"Could not initialize Anthropic client: {exc}", file=sys.stderr)
+        engine = LocalEngine(
+            model_name,
+            max_new_tokens=int(os.environ.get("AGENT_MAX_NEW_TOKENS", "1024")),
+            temperature=float(os.environ.get("AGENT_TEMPERATURE", "0.7")),
+        )
+    except Exception as exc:
+        print(f"Could not load model '{model_name}': {exc}", file=sys.stderr)
         sys.exit(1)
 
     memory = Memory(HISTORY_PATH)
 
     if len(sys.argv) > 1:
-        instruction = " ".join(sys.argv[1:])
-        _run_safely(client, memory, instruction)
+        _run_safely(engine, memory, " ".join(sys.argv[1:]))
         return
 
-    print("agentic-ai — minimal agent loop. Type 'exit' to quit.")
+    print("agentic-ai — local agent loop. Type 'exit' to quit.")
     while True:
         try:
             user_input = input("\n> ").strip()
@@ -33,16 +38,14 @@ def main() -> None:
             continue
         if user_input.lower() in {"exit", "quit"}:
             break
-        _run_safely(client, memory, user_input)
+        _run_safely(engine, memory, user_input)
 
 
-def _run_safely(client: anthropic.Anthropic, memory: Memory, instruction: str) -> None:
+def _run_safely(engine: LocalEngine, memory: Memory, instruction: str) -> None:
     try:
-        run_turn(client, memory, instruction)
-    except anthropic.APIStatusError as exc:
-        print(f"\nAPI error ({exc.status_code}): {exc.message}", file=sys.stderr)
-    except anthropic.APIConnectionError as exc:
-        print(f"\nConnection error: {exc}", file=sys.stderr)
+        run_turn(engine, memory, instruction)
+    except Exception as exc:  # keep an interactive session alive across generation errors
+        print(f"\nGeneration error: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":

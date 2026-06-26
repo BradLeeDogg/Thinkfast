@@ -1,10 +1,12 @@
 [project]
 name = "agentic-ai"
 version = "0.1.0"
-description = "Minimal, extensible Claude-powered agent loop: LLM + tool calling + memory."
+description = "Minimal, extensible local agent loop: in-process open-weights LLM + tool calling + memory."
 requires-python = ">=3.10"
 dependencies = [
-    "anthropic>=0.69.0",
+    "transformers>=4.45",
+    "torch>=2.1",
+    "accelerate>=0.26",
 ]
 
 [project.scripts]
