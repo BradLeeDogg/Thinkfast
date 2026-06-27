@@ -16,7 +16,7 @@ import threading
 from dataclasses import dataclass, field
 from typing import Any
 
-DEFAULT_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
+DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct"
 
 # Matches the <tool_call>{json}</tool_call> blocks emitted by Qwen2.5-style models.
 _TOOL_CALL_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)

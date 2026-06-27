@@ -33,12 +33,17 @@ The first run downloads the model weights (cached afterwards under
 
 ## Choosing a model
 
-The default is `Qwen/Qwen2.5-1.5B-Instruct` — small, and good at tool-calling
-for its size. Point at any chat model whose tokenizer advertises tool support
-through its chat template:
+The default is `Qwen/Qwen2.5-7B-Instruct` — a capable instruct model with
+strong tool-calling. It realistically wants a GPU with ~16 GB of VRAM (in
+bf16); on CPU it runs but is slow and memory-hungry.
+
+Point `AGENT_MODEL` at any chat model whose tokenizer advertises tool support
+through its chat template — scale up for more capability, or down for lighter
+hardware:
 
 ```bash
-export AGENT_MODEL=Qwen/Qwen2.5-7B-Instruct    # bigger = more reliable tool use
+export AGENT_MODEL=Qwen/Qwen2.5-32B-Instruct    # more capable (needs more VRAM)
+export AGENT_MODEL=Qwen/Qwen2.5-1.5B-Instruct   # lighter / runs almost anywhere
 agent "list the files in the current directory"
 ```
 
