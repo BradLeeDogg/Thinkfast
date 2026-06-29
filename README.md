@@ -52,6 +52,33 @@ Tool-calling is tuned for Qwen2.5-style models, which emit
 templates (e.g. Llama 3.1 Instruct) generally work too. Generation can also be
 tuned with `AGENT_MAX_NEW_TOKENS` and `AGENT_TEMPERATURE`.
 
+## Fine-tuning (make it yours)
+
+Teach the model your own voice, facts, or task with LoRA — a small adapter
+trained on top of the base model, no full retrain required. A GPU is required
+for training.
+
+```bash
+pip install -e .[finetune]
+agent-finetune --data examples/finetune_data.jsonl --output ./agent-lora
+```
+
+Training data is JSONL, one chat example per line in the agent's own message
+format:
+
+    {"messages": [{"role": "user", "content": "..."},
+                  {"role": "assistant", "content": "..."}]}
+
+Then point the agent at the adapter — `LocalEngine` detects it and loads it on
+top of the base model automatically:
+
+```bash
+AGENT_MODEL=./agent-lora agent "who built you?"
+```
+
+`agent-finetune --help` lists the knobs (epochs, LoRA rank, learning rate, …);
+pass `--merge` to also write a standalone merged model.
+
 ## How it's structured
 
 - `agent/engine.py` — loads the model in-process and generates responses:
@@ -66,6 +93,8 @@ tuned with `AGENT_MAX_NEW_TOKENS` and `AGENT_TEMPERATURE`.
   a JSON schema describing it to the model. Add new tools here and register
   them in `agent/tools/__init__.py`.
 - `agent/cli.py` — entry point for interactive and single-shot use.
+- `agent/finetune.py` — optional LoRA fine-tuning (`agent-finetune`) that
+  produces an adapter the engine loads back in.
 
 ## Adding a tool
 

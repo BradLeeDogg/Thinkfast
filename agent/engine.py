@@ -14,6 +14,7 @@ import json
 import re
 import threading
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct"
@@ -68,6 +69,15 @@ def strip_tool_calls(text: str) -> str:
     return _TOOL_CALL_RE.sub("", text).strip()
 
 
+def _peft_base_model(model_name: str) -> str | None:
+    """If ``model_name`` is a local LoRA adapter directory (as written by
+    ``agent-finetune``), return the base model it was trained on; otherwise None."""
+    config = Path(model_name) / "adapter_config.json"
+    if not config.is_file():
+        return None
+    return json.loads(config.read_text()).get("base_model_name_or_path")
+
+
 class LocalEngine:
     """Loads a chat model into the current process and generates responses."""
 
@@ -85,15 +95,27 @@ class LocalEngine:
         self.model_name = model_name
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+
         # `torch_dtype` was renamed to `dtype` in transformers 5.x; pick the keyword
         # the installed version expects so "auto" precision works warning-free on both.
         dtype_kw = "dtype" if int(transformers.__version__.split(".")[0]) >= 5 else "torch_dtype"
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            device_map="auto",
-            **{dtype_kw: "auto"},
-        )
+
+        base = _peft_base_model(model_name)
+        if base is not None:
+            # model_name is a LoRA adapter from `agent-finetune`: load the base model
+            # and apply the adapter on top. Needs the optional 'finetune' extra (peft).
+            from peft import PeftModel
+
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            model = AutoModelForCausalLM.from_pretrained(
+                base, device_map="auto", **{dtype_kw: "auto"}
+            )
+            self.model = PeftModel.from_pretrained(model, model_name)
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_name, device_map="auto", **{dtype_kw: "auto"}
+            )
 
     def generate(self, messages: list[dict], tools: list[dict]) -> tuple[str, list[ToolCall]]:
         """Generate the assistant's next message, streaming text to stdout as it
