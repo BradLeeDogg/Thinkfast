@@ -31,6 +31,20 @@ agent "what is 47 * 19? use the calculator"    # single instruction
 The first run downloads the model weights (cached afterwards under
 `~/.cache/huggingface`). A GPU is recommended; CPU works but is slow.
 
+## Web chat UI
+
+Prefer a browser over the terminal? Launch a local chat UI backed by the same
+agent (tools and all):
+
+```bash
+pip install -e .[webui]
+agent-web                       # serves http://127.0.0.1:7860
+```
+
+`agent-web --help` covers `--host`, `--port`, and `--share` (a temporary public
+link). The model still runs locally, so pick `AGENT_MODEL` to match your
+hardware (below).
+
 ## Choosing a model
 
 The default is `Qwen/Qwen2.5-7B-Instruct` — a capable instruct model with
@@ -46,6 +60,10 @@ export AGENT_MODEL=Qwen/Qwen2.5-32B-Instruct    # more capable (needs more VRAM)
 export AGENT_MODEL=Qwen/Qwen2.5-1.5B-Instruct   # lighter / runs almost anywhere
 agent "list the files in the current directory"
 ```
+
+Only a CUDA (NVIDIA) GPU is used for acceleration; with integrated graphics
+(Intel/AMD) the model runs on the CPU, so prefer a 1.5B or 0.5B model there for
+a responsive chat.
 
 Tool-calling is tuned for Qwen2.5-style models, which emit
 `<tool_call>{...}</tool_call>` blocks; other families with compatible chat
@@ -95,6 +113,7 @@ pass `--merge` to also write a standalone merged model.
 - `agent/cli.py` — entry point for interactive and single-shot use.
 - `agent/finetune.py` — optional LoRA fine-tuning (`agent-finetune`) that
   produces an adapter the engine loads back in.
+- `agent/webui.py` — optional browser chat UI (`agent-web`) built on Gradio.
 
 ## Adding a tool
 

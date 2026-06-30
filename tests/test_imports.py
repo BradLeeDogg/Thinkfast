@@ -11,6 +11,7 @@ MODULES = [
     "agent",
     "agent.engine",
     "agent.finetune",
+    "agent.webui",
     "agent.loop",
     "agent.cli",
     "agent.memory",

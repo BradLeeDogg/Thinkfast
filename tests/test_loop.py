@@ -3,7 +3,7 @@
 run_turn only needs an object with ``generate(messages, tools) -> (text, calls)``.
 """
 from agent.engine import ToolCall
-from agent.loop import MAX_STEPS, run_turn
+from agent.loop import MAX_STEPS, run_turn, run_turn_stream
 from agent.memory import Memory
 
 
@@ -57,3 +57,32 @@ def test_unknown_tool_error_is_fed_back_to_the_model():
     run_turn(CallsUnknownTool(), mem, "x")
     tool_msg = next(m for m in mem.messages if m["role"] == "tool")
     assert "unknown tool" in tool_msg["content"]
+
+
+class FakeStreamEngine:
+    """Stub engine exposing stream() (what run_turn_stream needs)."""
+
+    def __init__(self, rounds):
+        self.rounds = list(rounds)
+        self.i = 0
+
+    def stream(self, messages, tools):
+        text = self.rounds[self.i]
+        self.i += 1
+        for ch in text:  # emit char by char to mimic token streaming
+            yield ch
+
+
+def test_run_turn_stream_strips_xml_and_runs_tools():
+    rounds = [
+        'Let me calculate.\n<tool_call>{"name": "calculate", "arguments": {"expression": "6*7"}}</tool_call>',
+        "The answer is 42.",
+    ]
+    mem = Memory()
+    chunks = list(run_turn_stream(FakeStreamEngine(rounds), mem, "what is 6*7?"))
+    final = chunks[-1]
+    assert "The answer is 42." in final
+    assert "42" in final                # the calculator result is surfaced
+    assert "<tool_call>" not in final   # raw tool-call XML is never shown
+    assert [m["role"] for m in mem.messages] == ["user", "assistant", "tool", "assistant"]
+    assert mem.messages[2]["content"] == "42"

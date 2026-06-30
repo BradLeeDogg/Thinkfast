@@ -1,4 +1,4 @@
-from .engine import strip_tool_calls
+from .engine import parse_tool_calls, strip_tool_calls
 from .memory import Memory
 from .tools import TOOL_SCHEMAS, TOOLS
 
@@ -49,3 +49,43 @@ def run_turn(engine, memory: Memory, user_input: str) -> str:
     final = "(stopped: reached the maximum number of tool-calling steps)"
     memory.append({"role": "assistant", "content": final})
     return final
+
+
+def run_turn_stream(engine, memory: Memory, user_input: str):
+    """Generator form of :func:`run_turn` for UIs.
+
+    Yields the assistant's running reply as markdown — tool-call syntax stripped
+    out, each executed tool shown as a step — so a front-end can render it as it
+    streams. ``engine`` must provide ``stream(messages, tools)`` yielding text
+    pieces (``LocalEngine`` does).
+    """
+    memory.append({"role": "user", "content": user_input})
+
+    transcript = ""
+    for _ in range(MAX_STEPS):
+        raw = ""
+        for piece in engine.stream(memory.messages, TOOL_SCHEMAS):
+            raw += piece
+            yield transcript + strip_tool_calls(raw)
+
+        tool_calls = parse_tool_calls(raw)
+        message = {"role": "assistant", "content": strip_tool_calls(raw)}
+        if tool_calls:
+            message["tool_calls"] = [
+                {"type": "function", "function": {"name": c.name, "arguments": c.arguments}}
+                for c in tool_calls
+            ]
+        memory.append(message)
+
+        if not tool_calls:
+            return
+
+        transcript += strip_tool_calls(raw)
+        for call in tool_calls:
+            result = _execute_tool(call.name, call.arguments)
+            memory.append({"role": "tool", "name": call.name, "content": result})
+            transcript += f"\n\n🔧 `{call.name}({call.arguments})` → {result}\n\n"
+        yield transcript
+
+    transcript += "\n\n_(stopped: reached the maximum number of tool-calling steps)_"
+    yield transcript

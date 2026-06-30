@@ -117,9 +117,11 @@ class LocalEngine:
                 model_name, device_map="auto", **{dtype_kw: "auto"}
             )
 
-    def generate(self, messages: list[dict], tools: list[dict]) -> tuple[str, list[ToolCall]]:
-        """Generate the assistant's next message, streaming text to stdout as it
-        arrives, and return ``(full_text, parsed_tool_calls)``."""
+    def stream(self, messages: list[dict], tools: list[dict]):
+        """Yield the assistant's generated text piece by piece as the model
+        produces it. A background thread runs ``model.generate`` while this
+        generator drains the streamer; callers accumulate the full text and run
+        :func:`parse_tool_calls` on it. Used by both the CLI and the web UI."""
         from transformers import TextIteratorStreamer
 
         oai_tools = [to_openai_tool(t) for t in tools]
@@ -147,13 +149,19 @@ class LocalEngine:
 
         thread = threading.Thread(target=self.model.generate, kwargs=gen_kwargs)
         thread.start()
+        try:
+            for piece in streamer:
+                yield piece
+        finally:
+            thread.join()
 
+    def generate(self, messages: list[dict], tools: list[dict]) -> tuple[str, list[ToolCall]]:
+        """Generate the assistant's next message, streaming text to stdout as it
+        arrives, and return ``(full_text, parsed_tool_calls)``."""
         pieces: list[str] = []
-        for piece in streamer:
+        for piece in self.stream(messages, tools):
             print(piece, end="", flush=True)
             pieces.append(piece)
-        thread.join()
         print()
-
         text = "".join(pieces)
         return text, parse_tool_calls(text)
