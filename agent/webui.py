@@ -22,6 +22,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="127.0.0.1", help="Interface to bind (default: 127.0.0.1).")
     parser.add_argument("--port", type=int, default=7860, help="Port to serve on (default: 7860).")
     parser.add_argument("--share", action="store_true", help="Expose a temporary public Gradio link.")
+    parser.add_argument("--open", action="store_true", help="Open the UI in your browser once it's ready.")
     return parser
 
 
@@ -48,7 +49,7 @@ def main() -> None:
         respond,
         title="agentic-ai",
         description=f"Local agent · {model_name}",
-    ).launch(server_name=args.host, server_port=args.port, share=args.share)
+    ).launch(server_name=args.host, server_port=args.port, share=args.share, inbrowser=args.open)
 
 
 if __name__ == "__main__":

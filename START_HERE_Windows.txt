@@ -1,0 +1,66 @@
+=====================================================
+ agentic-ai - How to run it on Windows (START HERE)
+=====================================================
+
+Steps 1 and 2 you only do ONCE. After that, running it again
+is just Step 3.
+
+
+-----------------------------------------------------
+STEP 1 - Install Python (one time)
+-----------------------------------------------------
+1. Go to:  https://www.python.org/downloads/
+2. Click the big yellow "Download Python" button.
+3. Open the file that downloads.
+4. VERY IMPORTANT: on the first installer screen, tick the
+   little box at the bottom that says
+   "Add python.exe to PATH".
+5. Click "Install Now" and let it finish.
+
+(If you forget the PATH checkbox, the app can't find Python.)
+
+
+-----------------------------------------------------
+STEP 2 - Get the code (one time)
+-----------------------------------------------------
+If you're reading this file on your computer, you already did
+this. If not:
+1. On the project's GitHub page, click the green "Code" button.
+2. Click "Download ZIP".
+3. Open your Downloads folder, right-click the ZIP, choose
+   "Extract All...", and pick somewhere easy (your Desktop is
+   fine).
+
+
+-----------------------------------------------------
+STEP 3 - Run it
+-----------------------------------------------------
+1. Open the extracted folder (the one this file is in).
+2. Double-click:  run_windows.bat
+3. If Windows shows a blue "Windows protected your PC" box,
+   click "More info", then "Run anyway". (This is normal - the
+   file just does the steps above.)
+4. A black window opens and sets things up. The FIRST time it
+   downloads the AI model (a couple of GB) - you'll see
+   progress bars. This can take several minutes. Be patient.
+5. When it's ready, your web browser opens by itself with a
+   chat box. Type a message, press Enter, and you're talking
+   to your own AI.
+
+To STOP it: close the black window.
+To START it again another day: double-click run_windows.bat
+again (it's quick after the first time).
+
+
+-----------------------------------------------------
+If something goes wrong
+-----------------------------------------------------
+Copy whatever text is in the black window and send it to me -
+I'll tell you exactly what to do next.
+
+Tip: if replies feel too slow, open run_windows.bat with
+Notepad and change
+   Qwen/Qwen2.5-1.5B-Instruct
+to
+   Qwen/Qwen2.5-0.5B-Instruct
+(a smaller, faster model), then save and run it again.
