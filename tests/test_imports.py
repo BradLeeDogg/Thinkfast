@@ -10,6 +10,7 @@ import pytest
 MODULES = [
     "agent",
     "agent.engine",
+    "agent.ollama_engine",
     "agent.finetune",
     "agent.webui",
     "agent.loop",
