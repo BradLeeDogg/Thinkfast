@@ -11,6 +11,7 @@ package — and the tool loop — can be imported and tested without them.
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 from dataclasses import dataclass, field
@@ -165,3 +166,27 @@ class LocalEngine:
         print()
         text = "".join(pieces)
         return text, parse_tool_calls(text)
+
+
+def build_engine():
+    """Create the engine selected by the ``AGENT_BACKEND`` environment variable.
+
+    ``AGENT_BACKEND=ollama`` uses a local Ollama server (fast, quantized, no
+    torch); anything else uses the in-process Transformers ``LocalEngine``.
+    ``AGENT_MODEL`` picks the model, and ``AGENT_MAX_NEW_TOKENS`` /
+    ``AGENT_TEMPERATURE`` tune generation.
+    """
+    backend = os.environ.get("AGENT_BACKEND", "local").strip().lower()
+    max_new_tokens = int(os.environ.get("AGENT_MAX_NEW_TOKENS", "1024"))
+    temperature = float(os.environ.get("AGENT_TEMPERATURE", "0.7"))
+
+    if backend == "ollama":
+        from .ollama_engine import DEFAULT_OLLAMA_MODEL, OllamaEngine
+
+        model = os.environ.get("AGENT_MODEL", DEFAULT_OLLAMA_MODEL)
+        print(f"Using the Ollama backend with model '{model}' …")
+        return OllamaEngine(model, max_new_tokens=max_new_tokens, temperature=temperature)
+
+    model = os.environ.get("AGENT_MODEL", DEFAULT_MODEL)
+    print(f"Loading '{model}' in-process … (the first run downloads the weights)")
+    return LocalEngine(model, max_new_tokens=max_new_tokens, temperature=temperature)

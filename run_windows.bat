@@ -4,7 +4,7 @@ cd /d "%~dp0"
 title agentic-ai
 
 echo ==========================================================
-echo    agentic-ai  -  setup and launch (Windows)
+echo    agentic-ai  -  setup and launch (Windows, fast/Ollama)
 echo ==========================================================
 echo.
 
@@ -14,51 +14,71 @@ where py >nul 2>nul && set "PY=py"
 if not defined PY (
   where python >nul 2>nul && set "PY=python"
 )
-if not defined PY (
-  echo Python is not installed yet.
-  echo.
-  echo   1. I am opening the Python download page in your browser.
-  echo   2. Download it and run the installer.
-  echo   3. IMPORTANT: on the FIRST installer screen, tick the box
-  echo      "Add python.exe to PATH", then click "Install Now".
-  echo   4. When it finishes, double-click this file again.
-  echo.
-  start "" "https://www.python.org/downloads/"
-  echo Press any key to close this window.
-  pause >nul
-  exit /b 0
-)
-echo Using Python: %PY%
-echo.
+if not defined PY goto :need_python
+echo Python: %PY%
 
-REM --- 2) Create the environment on first run ------------------------------
+REM --- 2) Make sure Ollama (the fast engine) is installed ------------------
+where ollama >nul 2>nul
+if not errorlevel 1 goto :have_ollama
+echo Ollama is not installed. Trying to install it automatically...
+where winget >nul 2>nul
+if errorlevel 1 goto :ollama_manual
+winget install -e --id Ollama.Ollama --accept-package-agreements --accept-source-agreements
+echo.
+echo Ollama was installed. Please double-click this file again so it can be
+echo found (wait a few seconds first).
+goto :bye
+:have_ollama
+echo Ollama: found
+
+REM --- 3) Download the AI model (quantized, fast) -------------------------
+set "AGENT_MODEL=qwen2.5:1.5b"
+echo Making sure the model %AGENT_MODEL% is downloaded (first time only)...
+ollama pull %AGENT_MODEL%
+if errorlevel 1 goto :ollama_not_running
+
+REM --- 4) Install this app (light - no giant ML libraries) ----------------
 if not exist ".venv\Scripts\python.exe" (
   echo Creating the environment ^(first run only^)...
   %PY% -m venv .venv
   if errorlevel 1 goto :error
 )
-
-REM --- 3) Install the app --------------------------------------------------
-echo Installing the app. The first time, this can take several minutes...
+echo Installing the app...
 ".venv\Scripts\python.exe" -m pip install --upgrade pip
-".venv\Scripts\python.exe" -m pip install -e ".[webui]"
+".venv\Scripts\python.exe" -m pip install -e ".[ollama,webui]"
 if errorlevel 1 goto :error
 
-REM --- 4) Pick a small model that runs on a CPU / integrated GPU -----------
-REM   Too slow? Change 1.5B to 0.5B below. Real NVIDIA GPU? Try 7B.
-set "AGENT_MODEL=Qwen/Qwen2.5-1.5B-Instruct"
-
 REM --- 5) Launch -----------------------------------------------------------
+set "AGENT_BACKEND=ollama"
 echo.
 echo ==========================================================
-echo  Starting up. The FIRST time it downloads the AI model
-echo  ^(a couple of GB^) - you will see progress bars, be patient.
-echo  Your browser opens automatically when it is ready.
+echo  Starting. Your browser opens automatically when ready.
 echo  To STOP the app later, just close this black window.
 echo ==========================================================
 echo.
 ".venv\Scripts\agent-web.exe" --open
 goto :end
+
+:need_python
+echo Python is not installed yet.
+echo   1. I am opening the Python download page in your browser.
+echo   2. Run the installer and TICK "Add python.exe to PATH".
+echo   3. When it finishes, double-click this file again.
+start "" "https://www.python.org/downloads/"
+goto :bye
+
+:ollama_manual
+echo Could not auto-install Ollama. Opening the download page.
+echo Install Ollama, then double-click this file again.
+start "" "https://ollama.com/download"
+goto :bye
+
+:ollama_not_running
+echo.
+echo Could not download the model. Make sure the Ollama app is running
+echo (look for its llama icon near the clock, bottom-right), then run this
+echo file again.
+goto :bye
 
 :error
 echo.
@@ -71,3 +91,10 @@ echo -----------------------------------------------------------
 echo.
 echo (You can close this window now.)
 pause >nul
+exit /b 0
+
+:bye
+echo.
+echo Press any key to close this window.
+pause >nul
+exit /b 0

@@ -1,18 +1,20 @@
 [project]
 name = "agentic-ai"
 version = "0.1.0"
-description = "Minimal, extensible local agent loop: in-process open-weights LLM + tool calling + memory."
+description = "Minimal, extensible local agent loop: pick an LLM backend + tool calling + memory."
 requires-python = ">=3.10"
-dependencies = [
-    "transformers>=4.45",
-    "torch>=2.1",
-    "accelerate>=0.26",
-]
+dependencies = []
 
 [project.optional-dependencies]
-test = ["pytest>=7"]
-finetune = ["peft>=0.11", "datasets>=2.0"]
+# In-process model with Hugging Face Transformers (heavier; runs on your hardware).
+local = ["transformers>=4.45", "torch>=2.1", "accelerate>=0.26"]
+# Ollama backend - talks to a local Ollama server over HTTP (install Ollama separately).
+ollama = []
+# Browser chat UI.
 webui = ["gradio>=4"]
+# LoRA fine-tuning of the in-process model.
+finetune = ["transformers>=4.45", "torch>=2.1", "accelerate>=0.26", "peft>=0.11", "datasets>=2.0"]
+test = ["pytest>=7"]
 
 [project.scripts]
 agent = "agent.cli:main"

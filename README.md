@@ -1,84 +1,91 @@
 # agentic-ai
 
-A minimal, generic agent loop that runs entirely on a **local, in-process
-language model** — no API keys, no external services. It's a Claude-style
-tool-use loop plus conversation memory, with an open-weights model (loaded via
-Hugging Face Transformers) generating the responses, so the model is yours to
-run, swap, and fine-tune.
+A minimal, generic agent loop: an LLM plus tool use and conversation memory,
+running entirely on your own machine — no API keys, no external services. Pick
+the engine that suits your hardware:
 
-## Setup
+- **Ollama backend** (recommended) — talks to a local
+  [Ollama](https://ollama.com) server that runs compressed/quantized models
+  quickly, even on a plain CPU. No torch required.
+- **In-process backend** — loads the model inside Python with Hugging Face
+  Transformers. A CUDA (NVIDIA) GPU helps a lot; on a CPU or integrated GPU it
+  works but is slow.
+
+Either way it's the same agent: a tool-calling loop (`read_file`, `write_file`,
+`run_shell`, `calculate`), conversation memory, a CLI, and a web chat UI.
+
+## Quick start (Ollama — fast)
+
+1. Install Ollama from https://ollama.com and start it.
+2. Then:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e .
+pip install -e ".[ollama,webui]"
+ollama pull qwen2.5:1.5b          # downloads a small, fast model
+
+export AGENT_BACKEND=ollama
+export AGENT_MODEL=qwen2.5:1.5b
+agent-web                          # browser chat UI  (or:  agent  for the terminal)
 ```
 
-`pip install -e .` pulls `torch`, `transformers`, and `accelerate`. On Linux the
-default `torch` wheel is built for CUDA; for a CPU-only install do this first:
+**Windows:** just double-click `run_windows.bat` — it installs everything
+(Ollama included) and launches the chat for you. See `START_HERE_Windows.txt`.
+
+## In-process backend (Transformers)
 
 ```bash
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-pip install -e .
+pip install -e ".[local]"          # add ",webui" for the browser UI
+agent "what is 47 * 19? use the calculator"
 ```
+
+The default model is `Qwen/Qwen2.5-7B-Instruct`, which wants a GPU with ~16 GB
+of VRAM. On a CPU or integrated GPU, use a smaller model (see below). The first
+run downloads the weights to `~/.cache/huggingface`.
 
 ## Run
 
 ```bash
 agent                                          # interactive chat loop
-agent "what is 47 * 19? use the calculator"    # single instruction
+agent "list the files in the current directory"   # single instruction
+agent-web                                      # browser chat UI at http://127.0.0.1:7860
 ```
-
-The first run downloads the model weights (cached afterwards under
-`~/.cache/huggingface`). A GPU is recommended; CPU works but is slow.
-
-## Web chat UI
-
-Prefer a browser over the terminal? Launch a local chat UI backed by the same
-agent (tools and all):
-
-```bash
-pip install -e .[webui]
-agent-web                       # serves http://127.0.0.1:7860
-```
-
-`agent-web --help` covers `--host`, `--port`, and `--share` (a temporary public
-link). The model still runs locally, so pick `AGENT_MODEL` to match your
-hardware (below).
 
 ## Choosing a model
 
-The default is `Qwen/Qwen2.5-7B-Instruct` — a capable instruct model with
-strong tool-calling. It realistically wants a GPU with ~16 GB of VRAM (in
-bf16); on CPU it runs but is slow and memory-hungry.
+Set `AGENT_MODEL`. The names depend on the backend:
 
-Point `AGENT_MODEL` at any chat model whose tokenizer advertises tool support
-through its chat template — scale up for more capability, or down for lighter
-hardware:
+- **Ollama:** `qwen2.5:0.5b`, `qwen2.5:1.5b`, `qwen2.5:7b`, `llama3.1:8b`, …
+  (run `ollama pull <name>` first). Smaller = faster.
+- **In-process:** Hugging Face ids like `Qwen/Qwen2.5-1.5B-Instruct`,
+  `Qwen/Qwen2.5-7B-Instruct`, `Qwen/Qwen2.5-32B-Instruct`.
 
 ```bash
-export AGENT_MODEL=Qwen/Qwen2.5-32B-Instruct    # more capable (needs more VRAM)
-export AGENT_MODEL=Qwen/Qwen2.5-1.5B-Instruct   # lighter / runs almost anywhere
-agent "list the files in the current directory"
+export AGENT_BACKEND=ollama
+export AGENT_MODEL=qwen2.5:0.5b     # smaller/faster; bump to 7b for better answers
 ```
 
-Only a CUDA (NVIDIA) GPU is used for acceleration; with integrated graphics
-(Intel/AMD) the model runs on the CPU, so prefer a 1.5B or 0.5B model there for
-a responsive chat.
+Tool-calling works with any tool-capable chat model (Qwen2.5, Llama 3.1, …).
+Generation can also be tuned with `AGENT_MAX_NEW_TOKENS` and `AGENT_TEMPERATURE`.
 
-Tool-calling is tuned for Qwen2.5-style models, which emit
-`<tool_call>{...}</tool_call>` blocks; other families with compatible chat
-templates (e.g. Llama 3.1 Instruct) generally work too. Generation can also be
-tuned with `AGENT_MAX_NEW_TOKENS` and `AGENT_TEMPERATURE`.
+## Web chat UI
+
+```bash
+pip install -e ".[ollama,webui]"   # or ".[local,webui]"
+agent-web                          # serves http://127.0.0.1:7860
+```
+
+`agent-web --help` covers `--host`, `--port`, `--share`, and `--open`.
 
 ## Fine-tuning (make it yours)
 
-Teach the model your own voice, facts, or task with LoRA — a small adapter
-trained on top of the base model, no full retrain required. A GPU is required
-for training.
+Teach the in-process model your own voice or task with LoRA — a small adapter
+trained on top of the base model. A GPU is required for training.
 
 ```bash
-pip install -e .[finetune]
+pip install -e ".[finetune]"
 agent-finetune --data examples/finetune_data.jsonl --output ./agent-lora
+AGENT_BACKEND=local AGENT_MODEL=./agent-lora agent "who built you?"
 ```
 
 Training data is JSONL, one chat example per line in the agent's own message
@@ -87,39 +94,29 @@ format:
     {"messages": [{"role": "user", "content": "..."},
                   {"role": "assistant", "content": "..."}]}
 
-Then point the agent at the adapter — `LocalEngine` detects it and loads it on
-top of the base model automatically:
-
-```bash
-AGENT_MODEL=./agent-lora agent "who built you?"
-```
-
-`agent-finetune --help` lists the knobs (epochs, LoRA rank, learning rate, …);
-pass `--merge` to also write a standalone merged model.
+`agent-finetune --help` lists the knobs; pass `--merge` for a standalone model.
 
 ## How it's structured
 
-- `agent/engine.py` — loads the model in-process and generates responses:
-  converts the tool schemas into the chat-template format, streams tokens to
-  stdout as they arrive, and parses tool calls back out of the generated text.
-- `agent/loop.py` — the agentic loop itself: generate, run any tool calls the
-  model makes, feed the results back, repeat until it stops calling tools
-  (capped by `MAX_STEPS`).
-- `agent/memory.py` — conversation history, kept in process memory and
-  optionally persisted to a JSON file between runs.
-- `agent/tools/` — tool definitions. Each tool is a small Python function plus
-  a JSON schema describing it to the model. Add new tools here and register
-  them in `agent/tools/__init__.py`.
-- `agent/cli.py` — entry point for interactive and single-shot use.
-- `agent/finetune.py` — optional LoRA fine-tuning (`agent-finetune`) that
-  produces an adapter the engine loads back in.
-- `agent/webui.py` — optional browser chat UI (`agent-web`) built on Gradio.
+- `agent/engine.py` — the in-process (Transformers) engine, plus `build_engine`,
+  which picks the backend from `AGENT_BACKEND`.
+- `agent/ollama_engine.py` — the Ollama backend (talks to a local Ollama server
+  over HTTP; no torch).
+- `agent/loop.py` — the agentic loop: generate, run any tool calls, feed the
+  results back, repeat until it stops (capped by `MAX_STEPS`). `run_turn_stream`
+  is the streaming version used by the web UI.
+- `agent/memory.py` — conversation history, optionally persisted to JSON.
+- `agent/tools/` — tool definitions (a function + a JSON schema each). Add new
+  tools here and register them in `agent/tools/__init__.py`.
+- `agent/cli.py` — terminal entry point.
+- `agent/webui.py` — browser chat UI (`agent-web`), built on Gradio.
+- `agent/finetune.py` — optional LoRA fine-tuning (`agent-finetune`).
 
 ## Adding a tool
 
-1. Write a function in `agent/tools/` that takes keyword arguments matching
-   your JSON schema's `input_schema.properties` and returns a string result.
+1. Write a function in `agent/tools/` that takes keyword arguments matching your
+   JSON schema's `input_schema.properties` and returns a string.
 2. Add the JSON schema (name, description, input_schema) next to it.
 3. Register both in `TOOLS` and `TOOL_SCHEMAS` in `agent/tools/__init__.py`.
 
-The loop doesn't need to change — it dispatches on tool name generically.
+The loop dispatches on tool name generically, so it doesn't need to change.
