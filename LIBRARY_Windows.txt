@@ -1,0 +1,49 @@
+=====================================================
+ Make your AI an expert on your PDF books (Windows)
+=====================================================
+
+This teaches your AI to search your own PDF library and answer
+from it. You do the indexing ONCE.
+
+Before you start: make sure you've already run run_windows.bat at
+least once (so Python and Ollama are installed), and plug in the
+drive that has your PDFs.
+
+
+STEP 1 - Index your books (one time)
+------------------------------------
+1. Double-click:  index_library_windows.bat
+2. When it asks for the folder, paste the folder that holds your
+   PDFs and press Enter.
+   To get the path: open the folder in File Explorer, click the
+   address bar at the very top, copy it (Ctrl+C), then right-click
+   in the black window to paste.
+   Example:  E:\Novels      (E: is your removable drive)
+3. Let it run. A large library can take a few hours - it only does
+   this once, and it saves as it goes (you can close it and run it
+   again to pick up where it left off).
+
+
+STEP 2 - Ask about your books
+-----------------------------
+1. Double-click:  run_windows.bat   (the usual chat launcher)
+2. In the chat box, ask things like:
+     "Search my library for passages about the sea"
+     "What happens at the end of Moby Dick?"
+     "Compare how two of my books describe grief"
+
+
+Good to know
+------------
+ - After indexing, you do NOT need the drive plugged in anymore -
+   the index lives on your computer.
+ - If it answers from memory instead of your books, ask it to
+   "search my library for ..." - that nudges it to look things up.
+ - Smaller/faster models are less reliable at searching. For better
+   book answers, right-click run_windows.bat -> Edit and change
+   qwen2.5:1.5b to qwen2.5:7b (if your PC can handle it).
+
+
+If something goes wrong
+-----------------------
+Copy whatever text is in the black window and send it to me.

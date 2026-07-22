@@ -77,6 +77,29 @@ agent-web                          # serves http://127.0.0.1:7860
 
 `agent-web --help` covers `--host`, `--port`, `--share`, and `--open`.
 
+## Chat with your own books (retrieval)
+
+Point the agent at a folder of PDFs and it becomes an open-book expert: it
+searches the real text and answers grounded in it (with citations) instead of
+guessing from memory. Uses Ollama for embeddings — no GPU.
+
+```bash
+pip install -e ".[ollama,webui,library]"
+ollama pull nomic-embed-text
+agent-index "/path/to/your/pdfs"     # one-time; slow for a big library
+agent-web                            # now ask about your books
+```
+
+`agent-index` reads every PDF, splits it into passages, embeds them, and saves a
+local index (default `./library_index`; override with `AGENT_LIBRARY_INDEX`).
+Re-running skips books already indexed, so a long run resumes. Once indexed, the
+`search_library` tool appears automatically, and you can query offline without
+the source files. On Windows, run `index_library_windows.bat` once.
+
+Small models don't always decide to search on their own; if it answers from
+memory, ask it to "search my library for …", or use a larger `AGENT_MODEL`
+(e.g. `qwen2.5:7b`) for more reliable tool use.
+
 ## Fine-tuning (make it yours)
 
 Teach the in-process model your own voice or task with LoRA — a small adapter
@@ -110,6 +133,8 @@ format:
   tools here and register them in `agent/tools/__init__.py`.
 - `agent/cli.py` — terminal entry point.
 - `agent/webui.py` — browser chat UI (`agent-web`), built on Gradio.
+- `agent/library.py` + `agent/index_cli.py` — the PDF library index
+  (`agent-index`) and the search behind the `search_library` tool.
 - `agent/finetune.py` — optional LoRA fine-tuning (`agent-finetune`).
 
 ## Adding a tool

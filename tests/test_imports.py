@@ -13,12 +13,15 @@ MODULES = [
     "agent.ollama_engine",
     "agent.finetune",
     "agent.webui",
+    "agent.library",
+    "agent.index_cli",
     "agent.loop",
     "agent.cli",
     "agent.memory",
     "agent.tools",
     "agent.tools.calculator",
     "agent.tools.files",
+    "agent.tools.library",
     "agent.tools.shell",
 ]
 

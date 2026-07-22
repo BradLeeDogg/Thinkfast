@@ -12,6 +12,8 @@ local = ["transformers>=4.45", "torch>=2.1", "accelerate>=0.26"]
 ollama = []
 # Browser chat UI.
 webui = ["gradio>=4"]
+# Chat with your own PDFs (retrieval): PDF text extraction + vector search.
+library = ["pypdf>=4", "numpy>=1.24"]
 # LoRA fine-tuning of the in-process model.
 finetune = ["transformers>=4.45", "torch>=2.1", "accelerate>=0.26", "peft>=0.11", "datasets>=2.0"]
 test = ["pytest>=7"]
@@ -20,6 +22,7 @@ test = ["pytest>=7"]
 agent = "agent.cli:main"
 agent-finetune = "agent.finetune:main"
 agent-web = "agent.webui:main"
+agent-index = "agent.index_cli:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]
